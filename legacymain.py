@@ -13,12 +13,11 @@ os.environ.setdefault("QT_OPENGL", "software")
 
 
 def _install_pyuac_fallback() -> None:
-    """Provide a minimal pyuac-compatible shim when pyuac is unavailable."""
-    try:
-        import pyuac  # noqa: F401
-        return
-    except Exception:
-        pass
+    """Provide a minimal pyuac-compatible shim for legacy mode.
+
+    This intentionally overrides any installed pyuac package so legacy mode
+    never depends on pywin32 modules like win32con.
+    """
 
     shim = types.ModuleType("pyuac")
 
