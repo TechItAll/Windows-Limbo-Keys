@@ -11,6 +11,31 @@ import types
 os.environ.setdefault("QT_OPENGL", "software")
 
 
+def _is_admin_ctypes() -> bool:
+    try:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
+def _shell_execute_runas(exe: str, args: list[str], wait: bool = False) -> int:
+    params = subprocess.list2cmdline([str(arg) for arg in args]) if args else ""
+    result = ctypes.windll.shell32.ShellExecuteW(None, "runas", exe, params, None, 1)
+    code = int(result)
+    if code <= 32:
+        raise RuntimeError(f"ShellExecuteW failed with code {code}")
+    if wait:
+        return 0
+    return code
+
+
+def _ensure_optional_win32_stubs() -> None:
+    """Avoid hard failure if any dependency attempts pywin32 imports."""
+    for module_name in ("win32con", "win32api", "win32event", "win32process"):
+        if module_name not in sys.modules:
+            sys.modules[module_name] = types.ModuleType(module_name)
+
+
 
 def _install_pyuac_fallback() -> None:
     """Provide a minimal pyuac-compatible shim for legacy mode.
@@ -22,10 +47,7 @@ def _install_pyuac_fallback() -> None:
     shim = types.ModuleType("pyuac")
 
     def isUserAdmin() -> bool:
-        try:
-            return bool(ctypes.windll.shell32.IsUserAnAdmin())
-        except Exception:
-            return False
+        return _is_admin_ctypes()
 
     def runAsAdmin(cmdLine=None, wait: bool = False) -> None:
         if cmdLine is None:
@@ -34,11 +56,8 @@ def _install_pyuac_fallback() -> None:
             raise RuntimeError("No command line provided for elevation")
 
         exe = str(cmdLine[0])
-        params = " ".join(subprocess.list2cmdline([str(part)]) for part in cmdLine[1:])
-        show_cmd = 1
-        result = ctypes.windll.shell32.ShellExecuteW(None, "runas", exe, params, None, show_cmd)
-        if int(result) <= 32:
-            raise RuntimeError(f"ShellExecuteW failed with code {int(result)}")
+        args = [str(part) for part in cmdLine[1:]]
+        _shell_execute_runas(exe, args, wait=wait)
 
         if wait:
             # pyuac supports wait=True, but this legacy shim does not track the process handle.
@@ -50,6 +69,7 @@ def _install_pyuac_fallback() -> None:
 
 
 _install_pyuac_fallback()
+_ensure_optional_win32_stubs()
 
 import main as limbo_main
 from PySide6.QtCore import QTimer
