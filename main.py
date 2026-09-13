@@ -1606,7 +1606,7 @@ class MainController:
         if (not self.correctkeychosen) and self.runtime_crash_on_death:
             self._trigger_fake_crash_cmd()
         text = "You picked the CORRECT key!" if self.correctkeychosen else "You picked the WRONG key!"
-        QMessageBox.information(None, "limbo-windows-python", text)
+        QMessageBox.information(None, "Windows Limbo Keys", text)
         QApplication.instance().quit()
 
     def done_moving_onewindow(self) -> None:
